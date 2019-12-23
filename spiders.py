@@ -34,56 +34,6 @@ class MoneyFlow(SpiderTimeBased):
 class NameChange(SpiderStokeBased):
     pickle_path = 'raw/name_change'
     pkl_prefix = 'name_change_'
-
-    @staticmethod
-    def fetch(val):
-        df = pro.namechange(ts_code=val)
-        return df
-
-
-class NameChange(SpiderStokeBased):
-    pickle_path = 'raw/name_change'
-    pkl_prefix = 'name_change_'
-
-    @staticmethod
-    def fetch(val):
-        df = pro.namechange(ts_code=val)
-        return df
-
-
-class NameChange(SpiderStokeBased):
-    pickle_path = 'raw/name_change'
-    pkl_prefix = 'name_change_'
-
-    @staticmethod
-    def fetch(val):
-        df = pro.namechange(ts_code=val)
-        return df
-
-
-class NameChange(SpiderStokeBased):
-    pickle_path = 'raw/name_change'
-    pkl_prefix = 'name_change_'
-
-    @staticmethod
-    def fetch(val):
-        df = pro.namechange(ts_code=val)
-        return df
-
-
-class NameChange(SpiderStokeBased):
-    pickle_path = 'raw/name_change'
-    pkl_prefix = 'name_change_'
-
-    @staticmethod
-    def fetch(val):
-        df = pro.namechange(ts_code=val)
-        return df
-
-
-class NameChange(SpiderStokeBased):
-    pickle_path = 'raw/name_change'
-    pkl_prefix = 'name_change_'
     update_limit = 500
 
     @staticmethod
