@@ -1,7 +1,12 @@
-import os, re, datetime, pickle, time
+import os, re, datetime, pickle, time, termcolor, hashlib
 import tushare as ts
-from conf import ts_token, start_date
-import termcolor
+import pandas as pd
+from conf import ts_token, start_date, db_conf
+from sqlalchemy import create_engine
+
+engine = create_engine(db_conf)
+ts.set_token(ts_token)
+pro = ts.pro_api()
 
 
 def logprop(color, title):
@@ -46,10 +51,6 @@ class log(object):
     @staticmethod
     def err(msg):
         pass
-
-
-ts.set_token(ts_token)
-pro = ts.pro_api()
 
 
 def end_date():
@@ -175,6 +176,7 @@ class Spider(object):
     pkl_prefix = ''
     pkl_sufix = '.pkl'
     sql_table = ''
+    sql_record_table = ''
 
     def __init__(self):
         super(Spider, self).__init__()
@@ -190,7 +192,8 @@ class Spider(object):
     def fetch(val):
         pass
 
-    def to_sql(self):
+    @classmethod
+    def to_sql(cls):
         pass
 
 
@@ -236,8 +239,33 @@ class SpiderTimeBased(Spider):
         else:
             log.info(f'data updated to the latest')
 
-    def to_sql(self):
-        pass
+    @classmethod
+    def update_db(cls):
+        log.info(f'UPDATING DATABASE for {cls.__name__}')
+        record = pd.read_sql(f'select * from {cls.sql_record_table};', engine)
+        for item in os.listdir(cls.pickle_path):
+            if item.startswith(cls.pkl_prefix) and item.endswith(cls.pkl_sufix):
+                file_path = os.path.join(cls.pickle_path, item)
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                    mtime = datetime.datetime.fromtimestamp(os.path.getmtime(file_path))
+                    if mtime.hour < 15:
+                        mtime = mtime + datetime.timedelta(days=-1)
+                    mt = mtime.strftime('%Y-%m-%d')
+                    checksum = hashlib.md5(content).hexdigest()
+                    rep = f'{cls.pkl_prefix}(\d+)\{cls.pkl_sufix}'
+                    pattern = re.compile(rep)
+                    trade_date = pattern.findall(item)[0]
+                    # print(item, checksum, mt)
+                    df = pickle.loads(content)
+                    dd = record[record['origin_file'] == item]
+                    if dd.empty:
+                        df.to_sql(cls.sql_table, con=engine, if_exists='append', index=False)
+                        engine.execute(f'insert into {cls.sql_record_table} (trade_date, origin_file, checksum, '
+                                       f'last_update) values ("{trade_date}","{item}","{checksum}","{mt}");')
+                        log.info(f'inserting {trade_date}')
+                    else:
+                        pass
 
 
 class SpiderStokeBased(Spider):
@@ -272,7 +300,7 @@ class SpiderStokeBased(Spider):
         length = len(diff)
         if diff:
             log.info(f'{len(diff)} dataset(s) to update')
-            t0 = t1 = time.time()
+            t0 = time.time()
             for i, item in enumerate(diff):
                 df = cls.fetch(item)
                 file_name = f'{cls.pkl_prefix}{item}{cls.pkl_sufix}'
@@ -283,11 +311,41 @@ class SpiderStokeBased(Spider):
                 deltaT = time.time() - t0
                 log.msg(f'{i + 1} out of {length} finished, time elapsed {round(deltaT, 2)}s,'
                         f'remaining {round(deltaT * (length - i) / (i + 1), 2)}s')
-                if i / deltaT > (cls.update_limit*0.9 / 60):
+                if i / deltaT > (cls.update_limit * 0.9 / 60):
                     log.warn('TOO FAST, SLEEP FOR A WHILE')
                     time.sleep(1)
         else:
             log.info(f'data updated to the latest')
+
+    @classmethod
+    def update_db(cls):
+        log.info(f'UPDATING DATABASE for {cls.__name__}')
+        record = pd.read_sql(f'select * from {cls.sql_record_table};', engine)
+        for item in os.listdir(cls.pickle_path):
+            if item.startswith(cls.pkl_prefix) and item.endswith(cls.pkl_sufix):
+                file_path = os.path.join(cls.pickle_path, item)
+                with open(file_path, 'rb') as f:
+                    content = f.read()
+                    mtime = datetime.datetime.fromtimestamp(os.path.getmtime(file_path))
+                    if mtime.hour < 15:
+                        mtime = mtime + datetime.timedelta(days=-1)
+                    mt = mtime.strftime('%Y-%m-%d')
+                    checksum = hashlib.md5(content).hexdigest()
+                    rep = f'{cls.pkl_prefix}(\d+\.\w+)\{cls.pkl_sufix}'
+                    pattern = re.compile(rep)
+                    ts_code = pattern.findall(item)[0]
+                    # print(item, checksum, mt)
+                    df = pickle.loads(content)
+                    dd = record[record['origin_file'] == item]
+                    if dd.empty:
+                        df.to_sql(cls.sql_table, con=engine, if_exists='append', index=False)
+                        engine.execute(f'insert into {cls.sql_record_table} (ts_code, origin_file, checksum, '
+                                       f'last_update) values ("{ts_code}","{item}","{checksum}","{mt}");')
+                        log.info(f'inserting {ts_code}')
+                    else:
+                        pass
+
+                # df.to_sql(cls.sql_table, con=engine, if_exists='append', index=False)
 
 
 if __name__ == '__main__':

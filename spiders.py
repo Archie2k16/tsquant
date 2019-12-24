@@ -14,6 +14,8 @@ class DailyBasic(SpiderTimeBased):
 class DayTick(SpiderTimeBased):
     pickle_path = 'raw/day_tick'
     pkl_prefix = 'day_tick_'
+    sql_table = 'day_tick'
+    sql_record_table = 'day_tick_record'
 
     @staticmethod
     def fetch(val):
@@ -35,11 +37,16 @@ class NameChange(SpiderStokeBased):
     pickle_path = 'raw/name_change'
     pkl_prefix = 'name_change_'
     update_limit = 500
+    sql_table = 'sec_name_change'
+    sql_record_table = 'sec_name_change_record'
 
     @staticmethod
     def fetch(val):
         df = pro.namechange(ts_code=val)
         return df
+
+    # def to_sql(cls, ):
+    #     df.to_sql()
 
 
 class FinanceAudit(SpiderStokeBased):
@@ -57,4 +64,4 @@ if __name__ == '__main__':
     # DailyBasic.update()
     # DayTick.update()
     # MoneyFlow.update()
-    FinanceAudit.update()
+    DayTick.update_db()

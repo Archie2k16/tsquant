@@ -1,0 +1,5 @@
+ts_token = 'your ts token'
+
+db_conf = 'mysql+pymysql://root:password@host/database?charset=utf8'
+
+start_date = '19901219'
