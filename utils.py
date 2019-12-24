@@ -47,7 +47,7 @@ class log(object):
     def warn(msg):
         pass
 
-    @logprop('RED', 'ERROR')
+    @logprop('red', 'ERROR')
     @staticmethod
     def err(msg):
         pass
