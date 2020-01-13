@@ -65,13 +65,13 @@ def end_date():
     hour = now.hour
     if hour >= 15:
         year = now.year
-        month = now.month
-        day = now.day
+        month = str(now.month).zfill(2)
+        day = str(now.day).zfill(2)
     else:
         now = now - datetime.timedelta(days=1)
         year = now.year
-        month = now.month
-        day = now.day
+        month = str(now.month).zfill(2)
+        day = str(now.day).zfill(2)
     return f'{year}{month}{day}'
 
 
@@ -154,10 +154,10 @@ def stock_list():
         os.makedirs(pickle_path)
     # todo 此处循环引用，降低代码复用效率，暂时没有更好的解决方案
     from spiders import DayTick
-    req = DayTick.check()
+    req = DayTick.check_fs()
     rv = set()
     if req['diff']:
-        DayTick.update()
+        DayTick.update_fs()
     for i in os.listdir(DayTick.pickle_path):
         if i.startswith(DayTick.pkl_prefix) and i.endswith(DayTick.pkl_sufix):
             with open(os.path.join(DayTick.pickle_path, i), 'rb') as f:
@@ -177,6 +177,7 @@ class Spider(object):
     pkl_sufix = '.pkl'
     sql_table = ''
     sql_record_table = ''
+    data_type = ''
 
     def __init__(self):
         super(Spider, self).__init__()
@@ -184,23 +185,15 @@ class Spider(object):
     def __new__(cls, *args, **kwargs):
         return object.__new__(cls)
 
-    @classmethod
-    def check(cls):
-        pass
-
     @staticmethod
     def fetch(val):
-        pass
-
-    @classmethod
-    def to_sql(cls):
         pass
 
 
 class SpiderTimeBased(Spider):
 
     @classmethod
-    def check(cls):
+    def check_fs(cls):
         if os.path.exists(cls.pickle_path):
             file_list = [i for i in os.listdir(cls.pickle_path) if
                          i.startswith(cls.pkl_prefix) and i.endswith(cls.pkl_sufix)]
@@ -216,16 +209,14 @@ class SpiderTimeBased(Spider):
 
         rv = {'online_data': len(trade_date),
               'local_data': len(exist_date),
-              'max_local': max(exist_date) if exist_date else None,
-              'max_online': max(trade_date),
               'diff': diff
               }
         return rv
 
     @classmethod
-    def update(cls):
+    def update_fs(cls):
         log.info(f'UPDATING {cls.__name__}')
-        req = cls.check()
+        req = cls.check_fs()
         diff = req['diff']
         if diff:
             log.info(f'{len(diff)} dataset(s) to update')
@@ -240,12 +231,30 @@ class SpiderTimeBased(Spider):
             log.info(f'data updated to the latest')
 
     @classmethod
+    def check_db(cls):
+        # 获取记录表信息
+        record = pd.read_sql(f'select * from {cls.sql_record_table};', engine)
+
+        # 获取文件信息
+        file_set = os.listdir(cls.pickle_path)
+        fs_data = [i for i in file_set if i.startswith(cls.pkl_prefix) and i.endswith(cls.pkl_sufix)]
+        diff = set(fs_data) - set(record['origin_file'])
+
+        rv = {'fs_data': len(fs_data),
+              'db_data': len(record),
+              'diff': diff
+              }
+        return rv
+
+    @classmethod
     def update_db(cls):
         log.info(f'UPDATING DATABASE for {cls.__name__}')
-        record = pd.read_sql(f'select * from {cls.sql_record_table};', engine)
-        for item in os.listdir(cls.pickle_path):
-            if item.startswith(cls.pkl_prefix) and item.endswith(cls.pkl_sufix):
-                file_path = os.path.join(cls.pickle_path, item)
+        req = cls.check_db()
+
+        diff = req['diff']
+        if diff:
+            for i in diff:
+                file_path = os.path.join(cls.pickle_path, i)
                 with open(file_path, 'rb') as f:
                     content = f.read()
                     mtime = datetime.datetime.fromtimestamp(os.path.getmtime(file_path))
@@ -255,20 +264,18 @@ class SpiderTimeBased(Spider):
                     checksum = hashlib.md5(content).hexdigest()
                     rep = f'{cls.pkl_prefix}(\d+)\{cls.pkl_sufix}'
                     pattern = re.compile(rep)
-                    trade_date = pattern.findall(item)[0]
-                    # print(item, checksum, mt)
+                    trade_date = pattern.findall(i)[0]
                     df = pickle.loads(content)
-                    dd = record[record['origin_file'] == item]
-                    if dd.empty:
-                        df.to_sql(cls.sql_table, con=engine, if_exists='append', index=False)
-                        engine.execute(f'insert into {cls.sql_record_table} (trade_date, origin_file, checksum, '
-                                       f'last_update) values ("{trade_date}","{item}","{checksum}","{mt}");')
-                        log.info(f'inserting {trade_date}')
-                    else:
-                        pass
+                    df.to_sql(cls.sql_table, con=engine, if_exists='append', index=False)
+                    engine.execute(f'insert into {cls.sql_record_table} (trade_date, origin_file, checksum, '
+                                   f'last_update) values ("{trade_date}","{i}","{checksum}","{mt}");')
+                    log.info(f'inserting {i}')
+
+        else:
+            log.info(f'data updated to the latest')
 
 
-class SpiderStokeBased(Spider):
+class SpiderStockBased(Spider):
     update_limit = 100
 
     @classmethod

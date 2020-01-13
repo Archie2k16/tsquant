@@ -40,6 +40,10 @@ create table day_tick
 
 ) engine = myisam;
 
+create index ix_ts_code_day_tick on day_tick (ts_code);
+create index ix_trade_date_day_tick on day_tick (trade_date);
+
+
 create table day_tick_record
 (
     trade_date  date primary key,
@@ -68,8 +72,13 @@ create table daily_basic
     float_share     double comment '流通股本（万股）',
     free_share      double comment '自由流通股本（万股）',
     total_mv        double comment '总市值（万元）',
-    circ_mv         double comment '流通市值（万元）'
+    circ_mv         double comment '流通市值（万元）',
+    primary key (ts_code, trade_date)
 ) engine = myisam;
+
+create index ix_ts_code_daily_basic on daily_basic (ts_code);
+create index ix_trade_date_daily_basic on daily_basic (trade_date);
+
 
 create table daily_basic_record
 (
@@ -88,6 +97,11 @@ create table suspend
     suspend_reason varchar(128),
     reason_type    varchar(128)
 ) engine = myisam;
+
+alter table suspend add  primary key (ts_code,suspend_date);
+create index ix_ts_code_suspend on suspend (ts_code);
+create index ix_trade_date_suspend on suspend (suspend_date);
+
 
 create table suspend_record
 (
@@ -120,7 +134,11 @@ create table money_flow
     net_mf_vol      int comment '净流入量（手）',
     net_mf_amount   double comment '净流入额（万元）'
 
-) engine = myisam;
+) engine = myisam comment '小单：5万以下 中单：5万～20万 大单：20万～100万 特大单：成交额>=100万';
+create index ix_ts_code_money_flow on money_flow (ts_code);
+create index ix_trade_date_money_flow on money_flow (trade_date);
+
+
 
 create table money_flow_record
 (
@@ -135,8 +153,13 @@ create table adj_factor
 (
     ts_code    varchar(16),
     trade_date date,
-    adj_factor double
+    adj_factor double,
+    primary key (ts_code, trade_date)
 ) engine = myisam;
+
+create index ix_ts_code_adj_factor on adj_factor (ts_code);
+create index ix_trade_date_adj_factor on adj_factor (trade_date);
+
 
 create table adj_factor_record
 (
@@ -145,3 +168,58 @@ create table adj_factor_record
     checksum    varchar(32),
     last_update date
 ) engine = myisam;
+
+create table limit_list
+(
+    ts_code    varchar(16),
+    trade_date date,
+    name       varchar(32),
+    close      double,
+    pct_chg    double,
+    amp        double comment '振幅',
+    fc_ratio   double comment '封单金额/日成交金额',
+    fl_ratio   double comment '封单手数/流通股本',
+    fd_amount  double comment '封单金额',
+    first_time time comment '首次涨停时间',
+    last_time  time comment '最后封板时间',
+    open_times int comment '打开次数',
+    strth      double comment '涨跌停强度',
+    `limit`    varchar(8) comment 'D跌停U涨停'
+) engine = myisam;
+
+create index ix_ts_code_limit_list on limit_list (ts_code);
+create index ix_trade_date_limit_list on limit_list (trade_date);
+
+create table limit_list_record
+(
+    trade_date  date primary key,
+    origin_file varchar(32),
+    checksum    varchar(32),
+    last_update date
+) engine = myisam;
+
+
+
+create table concept
+(
+    code varchar(16),
+    name varchar(64),
+    src  varchar(32)
+) engine = myisam;
+
+
+drop table concept_detail;
+
+create table concept_detail
+(
+    id           varchar(16),
+    concept_name varchar(64),
+    ts_code      varchar(16),
+    name         varchar(64)
+) engine = myisam;
+
+create index ix_ts_code_concept_detail on concept_detail(ts_code);
+
+
+
+

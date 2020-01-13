@@ -1,4 +1,4 @@
-from utils import SpiderTimeBased, SpiderStokeBased, pro
+from utils import SpiderTimeBased, SpiderStockBased, pro
 
 
 class DailyBasic(SpiderTimeBased):
@@ -76,7 +76,22 @@ class MoneyFlow(SpiderTimeBased):
         return df
 
 
-class NameChange(SpiderStokeBased):
+class LimitList(SpiderTimeBased):
+    '''
+    当日涨跌停统计
+    '''
+    pickle_path = 'raw/limit_list'
+    pkl_prefix = 'limit_list_'
+    sql_table = 'limit_list'
+    sql_record_table = 'limit_list_record'
+
+    @staticmethod
+    def fetch(val):
+        df = pro.limit_list(trade_date=val)
+        return df
+
+
+class NameChange(SpiderStockBased):
     pickle_path = 'raw/name_change'
     pkl_prefix = 'name_change_'
     update_limit = 500
@@ -89,7 +104,7 @@ class NameChange(SpiderStokeBased):
         return df
 
 
-class FinanceAudit(SpiderStokeBased):
+class FinanceAudit(SpiderStockBased):
     pickle_path = 'raw/finance_audit'
     pkl_prefix = 'finance_audit_'
     update_limit = 400
@@ -101,9 +116,20 @@ class FinanceAudit(SpiderStokeBased):
 
 
 if __name__ == '__main__':
-    # DailyBasic.update()
-    # DayTick.update()
-    # MoneyFlow.update()
-    # DailyBasic.update_db()
-    AdjFactor.update()
+    DailyBasic.update_fs()
+    DailyBasic.update_db()
+
+    DayTick.update_fs()
+    DayTick.update_db()
+
+    MoneyFlow.update_fs()
+    MoneyFlow.update_db()
+
+    AdjFactor.update_fs()
     AdjFactor.update_db()
+
+    LimitList.update_fs()
+    LimitList.update_db()
+
+    Suspend.update_fs()
+    Suspend.update_db()
