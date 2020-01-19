@@ -1,24 +1,22 @@
-drop database tick_data;
-create database tick_data;
-use tick_data;
+import re
+from conf import db_conf2
+from sqlalchemy import create_engine
+import pandas as pd
 
-create table trade_date
-(
-    date_id    int primary key auto_increment,
-    trade_date date
-) engine = myisam;
+pattern = re.compile('^[sS][hHzZ]\w{6}$')
 
-create index ix_trade_date on trade_date (trade_date);
+engine = create_engine(db_conf2)
 
+rv = engine.execute('show tables;').fetchall()
+exist_tables = [i[0].upper() for i in rv if pattern.search(i[0])]
+print(exist_tables)
+rv = engine.execute('select concat(right(ts_code, 2), left(ts_code, 6)) from ts_code;').fetchall()
+to_update = [i[0].upper() for i in rv]
+to_update = set(to_update) - set(exist_tables)
+print(to_update)
 
-create table ts_code
-(
-    ts_id   int primary key auto_increment,
-    ts_code varchar(16)
-) engine = myisam;
-create index ix_ts_code on ts_code (ts_code);
-
-create table SZ000001
+# quit()
+create_sql = '''create table {0}
 (
     date_id         int primary key,
     active          bool comment '停复牌标志',
@@ -66,3 +64,8 @@ create table SZ000001
     net_mf_vol      int comment '净流入量（手）',
     net_mf_amount   double comment '净流入额（万元）'
 ) engine = myisam;
+'''
+
+for i, table in enumerate(to_update):
+    print(f'{str(i).zfill(4)}: Inserting {table}. ')
+    engine.execute(create_sql.format(table))
